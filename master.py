@@ -1,9 +1,5 @@
 from collections import deque, defaultdict
-import multiprocessing
-from multiprocessing import Queue, Process, Manager
-import threading
-import time
-import random
+from sys import stdin
 
 
 class Message:
@@ -64,12 +60,21 @@ class Node:
         msg = Message('Transfer', money)
         self.nodes_out[receiver].appendleft(msg)
 
-    def receive(self, sender, output=True):
+    def receive(self, sender=-1, output=True):
         """
         receive msg from sender with id
+        pick a random channel with msg to receive if sender not specified
         """
-        if not self.nodes_in[sender]:
+        if sender != -1 and not self.nodes_in[sender]:
             return
+        if sender == -1:
+            # find an in-channel with message
+            for id in self.nodes_in:
+                if self.nodes_in[id]:
+                    sender = id
+            if sender == -1:
+                return
+
         msg = self.nodes_in[sender].pop()
         if msg.type == 'SnapshotToken':
             # check whether the node started recording already
@@ -126,6 +131,7 @@ class Node:
         if sender != -1: # received marker from another node
             self.remain_recording -= 1
             self.channel_finished[sender] = True
+            self.channel_state[sender] = 0
         msg = Message('SnapshotToken', -1)
         for receiver in self.nodes_out:
             self.nodes_out[receiver].appendleft(msg)
@@ -146,7 +152,7 @@ class Node:
 class Observer:
     def __init__(self):
         """
-        initialize an observer
+        initialize the observer
         use other methods to set up channels
         """
         self.nodes_in = defaultdict(deque)
@@ -155,9 +161,16 @@ class Observer:
         self.channel_states = defaultdict(int)
         self.snapshot = False
 
+    def connect_node(self, id, node_in, node_out):
+        """
+        set up channels with a node with id
+        """
+        self.nodes_in[id] = node_in
+        self.nodes_out[id] = node_out
+
     def beginSnapshot(self, id):
         """
-        order node with id to take a snapshot
+        ask node with id to take a snapshot
         """
         if self.snapshot:
             return
@@ -199,251 +212,106 @@ class Observer:
         self.snapshot = False
 
 
-
-def observer(channels, lock, ):
-    # set up channels
-    print("Logger set up!")
-
-
-    while True:
-        if not channels["m"]["o"]:
-            time.sleep(0.1)
-        else:
-            msg_type, msg = channels["m"]["o"].pop()
-            if msg_type == "STOP":
-                break
-            elif msg_type == "BEGINSNAPSHOT":
-                node_id = int(msg[0])
-                channels["o"][node_id].appendleft(["SNAPSHOT", []])
-            elif msg_type == "COLLECTSTATE":
-                for recv_id, out_channel in channels["o"].items():
-                    if recv_id == "m":
-                        continue
-                    out_channel.appendleft(["COLLECT", []])
-                snapshot_state, snapshot_channels = {}, defaultdict(dict)
-                for send_id, _ in channels["o"].items():
-                    if send_id == "m":
-                        continue
-                    while len(channels[send_id]["o"]) <= 0:
-                        time.sleep(0.01)
-                    send_state, send_channel_state = channels[send_id]["o"].pop()
-                    snapshot_state[send_id] = send_state
-                    for in_id in send_channel_state.keys():
-                        if in_id == "m" or in_id == "o":
-                            continue
-                        snapshot_channels[in_id][send_id] = send_channel_state[in_id]
-                channels["o"]["m"].appendleft([snapshot_state, snapshot_channels])
-            print("this is the msg_type {} with message {}".format(msg_type, msg))
-
-
-def member_node(channels, lock, node_id, init_money):
-    money = init_money
-    node_id = node_id
-    is_recording = {} 
-    num_channels_recording = 0
-    snapshot_money = []
-    snapshot_channels = {}
+class Master:
+    def setup(self):
+        """
+        set up helper function for initialization and clean up
+        """
+        # set up the observer by default
+        self.observer = Observer()
+        self.nodes = {}
+        # set up channels
+        self.channels = {
+            'o2n': defaultdict(deque),
+            'n2o': defaultdict(deque),
+            'n2n': defaultdict(deque)
+        }
     
-    print("member_node set up!  node_id {}, money {}".format(node_id, money))
+    def killAll(self):
+        """
+        kill all nodes and clean up
+        """
+        for node in self.nodes:
+            node.kill()
+        self.setup()
 
-    while True:
-        if not (channels["m"][node_id]) and not (channels["o"][node_id]):
-            time.sleep(0.1)
-        elif channels["o"][node_id]:
-            msg_type, msg = channels["o"][node_id].pop()
-            if msg_type == "SNAPSHOT":
-                snapshot_money = money
-                num_channels_recording = 0
-                for nb_id, out_channel in channels[node_id].items():
-                    if nb_id == 'm' or nb_id == 'o':
-                        continue
-                    is_recording[nb_id] = True
-                    out_channel.appendleft(['M', []]) # send Marker
-                    snapshot_channels[nb_id] = 0 # init snapshot memory
-                    num_channels_recording += 1
-            elif msg_type == "COLLECT":
-                num_channels_recording = 0
-                for nb_id, out_channel in channels[node_id].items():
-                    if nb_id == 'm' or nb_id == 'o':
-                        continue
-                    is_recording[nb_id] = False
-                channels[node_id]["o"].appendleft([snapshot_money, snapshot_channels])
-        else:
-            print("specific channel state is ", channels['m'][node_id])
-            msg_type, msg = channels["m"][node_id].pop()
-            if msg_type == "STOP":
-                break
-            elif msg_type == "SEND":
-                # TODO: ERR_SEND
-                recv_id, amount = msg[0], msg[1]
-                print("sending money.... to {}, with money {}".format(recv_id, amount))
-                money -= amount
-                channels[node_id][recv_id].appendleft(["X", [node_id, amount]])
-            elif msg_type == "RECV":
-                send_id = msg[0]
-                if not channels[send_id][node_id]:
-                    continue
-                # while not channels[send_id][node_id]:
-                #     time.sleep(0.1)
-                lock.acquire()
-                msg_flag, msg = channels[send_id][node_id].pop()
-                if msg_flag == "M":
-                    if num_channels_recording == 0:
-                        snapshot_money = money
-                        for nb_id, out_channel in channels[node_id].items():
-                            if nb_id == 'm' or nb_id == 'o':
-                                continue
-                            is_recording[nb_id] = True
-                            out_channel.appendleft(['M', []]) # send Marker
-                            snapshot_channels[nb_id] = 0 # init snapshot memory
-                            num_channels_recording += 1
-                    else:
-                        if is_recording[send_id]:
-                            is_recording[send_id] = False
-                            num_channels_recording -= 1
-                        # otherwise ignore
-                else:
-                    sender_id, amount = msg
-                    if is_recording.get(sender_id, False):
-                        snapshot_channels[sender_id] += amount
-                    money += amount
-                    print("receiving money ... from {}, with money {}".format(sender_id, amount))
-                
-                lock.release()
+    def createNode(self, id, money):
+        node = Node(id, money)
+        self.nodes[id] = node
+        # set up observer connection
+        node.connect_observer(self.channels['o2n'][id], self.channels['n2o'][id])
+        self.observer.connect_node(id, self.channels['n2o'][id], self.channels['o2n'][id])
+        # set up node connection
+        for id2 in self.nodes:
+            if id2 != id:
+                self.nodes[id2].connect_node(id, self.channels['n2n'][(id, id2)], self.channels['n2n'][(id2, id)])
+                self.nodes[id].connect_node(id2, self.channels['n2n'][(id2, id)], self.channels['n2n'][(id, id2)])
 
+    def send(self, sender, receiver, money):
+        self.nodes[sender].send(receiver, money)
 
-def receive_all_helper(channels, lock):
-    empty = True
-    src, dst = None, None
-    # this is not efficient, but just to fulfill the requirement
-    nonempty_map = []
-    lock.acquire()
-    for src, row in channels.items():
-        for dst, channel in row.items():
-            if len(channel) != 0:
-                empty = False
-                nonempty_map.append((src, dst))
-    lock.release()
+    def receive(self, receiver, sender=-1):
+        self.nodes[receiver].receive(sender)
 
+    def receiveAll(self):
+        for id in self.nodes:
+            self.nodes[id].receiveAll()
     
-    if not empty:
-        src, dst = random.choice(nonempty_map)
-        print("still channels not empty ... src {} dst {}".format(src, dst))
-    else:
-        print("all channels empty!")
-    
-    return empty, src, dst
+    def beginSnapshot(self, id):
+        self.observer.beginSnapshot(id)
+        # ensure blocking by asking the node to receive msg
+        self.nodes[id].receiveObserver()
 
+    def collectState(self):
+        self.observer.collectState()
 
+    def printSnapshot(self):
+        self.observer.printSnapshot()
 
 def main():
-    #Set up
-    thread_map = {}
-    channels = {}
-    member_list = []
-    lock = threading.RLock()
-    #manager = Manager()
-    #lock = manager.RLock()
-    #channels = manager.dict()
-    print("Please enter a command: ")
-    while True:
-        command = input()
+    master = Master()
+
+    for command in stdin:
         command_list = command.split()
-        print("command recieved: ", command_list)
-        if len(command_list) == 0:
+        if not command_list:
             continue
-        if command_list[0] == "StartMaster":
-            lock.acquire()
-            channels["m"] = {"o": deque()}
-            channels["o"] = {"m": deque()}
-            lock.release()
-            observer_thread = threading.Thread(target=observer, args=(channels, lock))
-            thread_map["observer"] = observer_thread
-            observer_thread.start()
-            
 
-        if command_list[0] == "CreateNode":
-            node_id = int(command_list[1])
-            init_money = int(command_list[2])
+        if command_list[0] == 'StartMaster':
+            master.setup()
 
-            # set up channels
-            lock.acquire()
-            for _, src in channels.items():
-                src[node_id] = deque()
-            new_channels = {"m": deque(), "o": deque()}
-            for member in member_list:
-                new_channels[member] = deque()
-            channels[node_id] = new_channels
-            member_list.append(node_id)
-            print("channels list is")
-            print(channels)
-            lock.release()
+        elif command_list[0] == 'KillAll':
+            master.killAll()
 
-            new_node = threading.Thread(target=member_node, args=(channels, lock, node_id, init_money))
-            thread_map[node_id] = new_node
-            new_node.start()
+        elif command_list[0] == 'CreateNode':
+            id = int(command_list[1])
+            money = int(command_list[2])
+            master.createNode(id, money)
 
-        if command_list[0] == "test":
-            channels['m']['o'].appendleft(["hello", "world"])
+        elif command_list[0] == 'Send':
+            sender = int(command_list[1])
+            receiver = int(command_list[2])
+            money = int(command_list[3])
+            master.send(sender, receiver, money)
 
-        
-        if command_list[0] == "Send":
-            _, src_id, dst_id, money = command_list
-            channels["m"][int(src_id)].appendleft(["SEND", [int(dst_id), int(money)]])
-        
-        if command_list[0] == "Receive":
-            recv_id = int(command_list[1])
+        elif command_list[0] == 'Receive':
+            receiver = int(command_list[1])
+            sender = -1
             if len(command_list) == 3:
-                send_id = command_list[2]
-            else:
-                send_id = random.choice(member_list)
-                assert len(member_list) > 1, "no members to randomly send to!"
-                while send_id == recv_id:
-                    send_id = random.choice(member_list)
-            
-            channels["m"][int(recv_id)].appendleft(["RECV", [int(send_id)]])
-        
-        if command_list[0] == "ReceiveAll":
-            empty, src, dst = receive_all_helper(channels,lock)
-            while not empty:
-                channels["m"][int(dst)].appendleft(["RECV", [src]])
-                time.sleep(0.1)
-                empty, src, dst = receive_all_helper(channels, lock)
+                sender = int(command_list[2])
+            master.receive(receiver, sender)
 
-        if command_list[0] == "KillAll":
-            print("killing all processes...")
-            # send killing command
-            lock.acquire()
-            for _, channel in channels["m"].items():
-                channel.appendleft(["STOP", "STOP"])
-            for _, v in thread_map.items():
-                v.join()
-            
-            print("finished!")
-            break
+        elif command_list[0] == 'ReceiveAll':
+            master.receiveAll()
 
-        if command_list[0] == "BeginSnapshot":
-            node_id = int(command_list[1])
-            channels["m"]["o"].appendleft(["BEGINSNAPSHOT", [node_id]])
+        elif command_list[0] == 'BeginSnapshot':
+            id = int(command_list[1])
+            master.beginSnapshot(id)
 
-        if command_list[0] == "CollectState":
-            channels["m"]["o"].appendleft(["COLLECTSTATE", []])
-            while len(channels["o"]["m"]) <= 0:
-                continue
-            snapshot_state, snapshot_channels = channels["o"]["m"].pop()
-            print(snapshot_state)
-            print(snapshot_channels)
+        elif command_list[0] == 'CollectState':
+            master.collectState()
 
-        if command_list[0] == "q":
-            return
-        else:
-            continue
-            # print("Unknown command, issue a new command!")
-            
-    return
-
-    
-    
+        elif command_list[0] == 'PrintSnapshot':
+            master.printSnapshot()
 
 
 if __name__ == "__main__":

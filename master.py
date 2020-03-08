@@ -126,12 +126,15 @@ class Node:
         start a snapshot
         assume the number of nodes is fixed during a snapshot
         """
+        
         self.state = self.money
         self.remain_recording = len(self.nodes_in)
         if sender != -1: # received marker from another node
             self.remain_recording -= 1
             self.channel_finished[sender] = True
             self.channel_state[sender] = 0
+        else:
+            print('Started by Node {:d}'.format(self.id))
         msg = Message('SnapshotToken', -1)
         for receiver in self.nodes_out:
             self.nodes_out[receiver].appendleft(msg)
@@ -176,7 +179,6 @@ class Observer:
             return
         msg = Message('TakeSnapshot', -1)
         self.nodes_out[id].appendleft(msg)
-        print('Started by Node {:d}'.format(id))
         self.snapshot = True
 
     def collectState(self):

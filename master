@@ -1,6 +1,8 @@
-from collections import deque, defaultdict
-from sys import stdin
+#!/usr/bin/python3
 
+from collections import deque, defaultdict
+import sys
+import random
 
 class Message:
     """
@@ -270,10 +272,22 @@ class Master:
     def printSnapshot(self):
         self.observer.printSnapshot()
 
-def main():
+def main(argv):
     master = Master()
+    random.seed(0)
 
-    for command in stdin:
+    # check arguments
+    if len(argv) != 2:
+        print('usage: ./master <input_file>')
+        return
+
+    # load input file
+    with open(argv[1]) as f:
+        lines = f.readlines()
+    lines = [line.strip() for line in lines if line.strip() != '']
+
+    # execute commands
+    for command in lines:
         command_list = command.split()
         if not command_list:
             continue
@@ -317,4 +331,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

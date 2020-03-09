@@ -1,1 +1,25 @@
 CS 380D distributed system project 1
+
+Name: Qi Huang, Tong Gao, Xiaoyang Shen
+UT EIDs: qh2466
+UTCS ids: qhuang
+
+Description of our protocol: \TODO Xiaoyang Shen
+
+Description of our tests: \TODO Tong Gao
+
+Instruction on how to use our system:
+
+1) put all the test commands in a txt file TEST.txt, each command separate by newline
+
+2) python master TEST.txt
+
+Other information:
+
+This is a single-thread implementation of Chandy-Lampart algorithm. We model channels as deque accessible by both receivers and senders of any specific channel. We model Master, Observer and Member
+nodes as instances of their respective classes. All the communication about the data in transaction, and the initialization, propogation and report stage of the distributed snapshot algorithm 
+are performed by message-passing in this channel framework.
+
+Per discussion with Professor in the office hour, when master node notify member node to send/recv messages, we use MemberNode.send() or MmeberNode.recv() due to the sigle-thread nature of this
+implementation.
+

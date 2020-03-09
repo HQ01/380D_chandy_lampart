@@ -12,6 +12,7 @@ class Message:
         self.type = msg
         self.value = value
 
+
 class Node:
     def __init__(self, id, money):
         """
@@ -65,7 +66,7 @@ class Node:
     def receive(self, sender=-1, output=True):
         """
         receive msg from sender with id
-        pick a random channel with msg to receive if sender not specified
+        pick a random channel with msg to receive if sender is not specified
         """
         if sender != -1 and not self.nodes_in[sender]:
             return
@@ -126,7 +127,7 @@ class Node:
     def _startSnapshot(self, sender=-1):
         """
         start a snapshot
-        assume the number of nodes is fixed during a snapshot
+        assume the number of nodes is unchanged during a snapshot
         """
         
         self.state = self.money
@@ -240,6 +241,9 @@ class Master:
         self.setup()
 
     def createNode(self, id, money):
+        """
+        create a node and set up channels
+        """
         node = Node(id, money)
         self.nodes[id] = node
         # set up observer connection
@@ -258,12 +262,18 @@ class Master:
         self.nodes[receiver].receive(sender)
 
     def receiveAll(self):
+        """
+        ask each node to perform receiveAll command
+        """
         for id in self.nodes:
             self.nodes[id].receiveAll()
     
     def beginSnapshot(self, id):
+        """
+        ask the observer to begin a snapshot on node with id
+        ensure blocking by asking that node to receive msg from observer
+        """
         self.observer.beginSnapshot(id)
-        # ensure blocking by asking the node to receive msg
         self.nodes[id].receiveObserver()
 
     def collectState(self):
@@ -271,6 +281,7 @@ class Master:
 
     def printSnapshot(self):
         self.observer.printSnapshot()
+
 
 def main(argv):
     master = Master()

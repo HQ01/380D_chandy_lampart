@@ -1,25 +1,39 @@
 CS 380D distributed system project 1
 
-Name: Qi Huang, Tong Gao, Xiaoyang Shen
-UT EIDs: qh2466
-UTCS ids: qhuang
+Qi Huang, qh2466, qhuang
+Tong Gao
+Xiaoyang Shen, xs3484, xyshen
 
-Description of our protocol: \TODO Xiaoyang Shen
+*************************
+1. Implementation Details
+*************************
+
+This is a single-thread implementation of Chandy-Lampart algorithm in Python3. 
+We model channels as deque accessible by both receivers and senders of any specific channel. 
+We model Master, Observer and (Member) Nodes as instances of their respective classes. Master
+orders the observer and nodes by calling their methods directly, but the observer and nodes only
+use their connecting channels for communication about the data in transaction, state initialization,
+propogation and reporting stage of the distributed snapshot algorithm.
+
+Per discussion with the professor in the office hour, when master node notify member node to send/recv
+messages, we use MemberNode.send() or MmeberNode.recv() due to the sigle-thread nature of this
+implementation.
+
+*******************
+2. Protocal Details
+*******************
+See the comments in code for more information.
+
 
 Description of our tests: \TODO Tong Gao
 
-Instruction on how to use our system:
+*********************
+3. Usage Instructions
+*********************
 
-1) put all the test commands in a txt file TEST.txt, each command separate by newline
+The system assumes that the user has Python3 executable located at /usr/bin/python.
+No extra packages are required.
 
-2) python master TEST.txt
+1) put all the test commands in a txt file TEST.txt, each command separated by newline
 
-Other information:
-
-This is a single-thread implementation of Chandy-Lampart algorithm. We model channels as deque accessible by both receivers and senders of any specific channel. We model Master, Observer and Member
-nodes as instances of their respective classes. All the communication about the data in transaction, and the initialization, propogation and report stage of the distributed snapshot algorithm 
-are performed by message-passing in this channel framework.
-
-Per discussion with Professor in the office hour, when master node notify member node to send/recv messages, we use MemberNode.send() or MmeberNode.recv() due to the sigle-thread nature of this
-implementation.
-
+2) ./master TEST.txt

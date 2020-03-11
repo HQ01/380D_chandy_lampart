@@ -137,8 +137,8 @@ class Node:
         self.state = self.money
         self.remain_recording = len(self.nodes_in)
         # initialize all in-channels to zero
-        for sender in self.nodes_in:
-            self.channel_state[sender] = 0
+        for s in self.nodes_in:
+            self.channel_state[s] = 0
 
         if sender != -1: # received marker from another node
             self.remain_recording -= 1
@@ -243,8 +243,8 @@ class Master:
         """
         kill all nodes and clean up
         """
-        for node in self.nodes:
-            node.kill()
+        for id in self.nodes:
+            self.nodes[id].kill()
         self.setup()
 
     def createNode(self, id, money):

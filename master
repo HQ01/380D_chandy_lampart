@@ -103,6 +103,7 @@ class Node:
     def receiveAll(self):
         """
         receive msg from all senders
+        return whether messages are received for master to use
         """
         received_msg = False
         for sender in self.nodes_in:
@@ -135,10 +136,13 @@ class Node:
         
         self.state = self.money
         self.remain_recording = len(self.nodes_in)
+        # initialize all in-channels to zero
+        for sender in self.nodes_in:
+            self.channel_state[sender] = 0
+
         if sender != -1: # received marker from another node
             self.remain_recording -= 1
             self.channel_finished[sender] = True
-            self.channel_state[sender] = 0
         else:
             print('Started by Node {:d}'.format(self.id))
         msg = Message('SnapshotToken', -1)

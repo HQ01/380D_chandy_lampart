@@ -5,16 +5,10 @@ Send 1 2 300
 Send 2 1 100
 Send 1 2 400
 Receive 2 1
-1 Transfer 300
 BeginSnapshot 1
-Started by Node 1
 Receive 2
-1 Transfer 400
 Receive 2
-1 SnapshotToken -1
 ReceiveAll
-Send 2 1 300
-Receive 1
-2 Transfer 300
 CollectState
 PrintSnapshot
+Send 1 2 5000

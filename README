@@ -1,7 +1,7 @@
 CS 380D distributed system project 1
 
 Qi Huang, qh2466, qhuang
-Tong Gao
+Tong Gao, tg25388, gaotong
 Xiaoyang Shen, xs3484, xyshen
 
 *************************
@@ -17,7 +17,7 @@ data in transaction, state initialization, propogation and reporting stage of th
 distributed snapshot algorithm.
 
 Per discussion with the professor in the office hour, when master node notify member 
-node to send/recv messages, we use MemberNode.send() or MmeberNode.recv() due to the 
+node to send/recv messages, we use MemberNode.send() or MemberNode.recv() due to the 
 sigle-thread nature of this implementation.
 
 
@@ -36,8 +36,10 @@ methods of these instances. Most of the methods are commented in the code.
 ****************
 3. Tests Details
 ****************
-\TODO Tong Gao
-
+We executes the program with Python 3.7.3 as interpreter on aristotle.cs.utexas.edu, 
+where 3 test files are created according to the test samples in the project 
+requirement. Each test has been ran for ten times to ensure no randomness will interfere.
+One case would be deemed correct when the result matches the expected output. 
 
 *********************
 4. Usage Instructions

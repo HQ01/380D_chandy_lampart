@@ -73,7 +73,7 @@ class Node:
         if sender == -1:
             # find an in-channel with message
             for id in self.nodes_in:
-                if self.nodes_in[id]:
+                if len(self.nodes_in[id]) > 0:
                     sender = id
             if sender == -1:
                 return
@@ -81,14 +81,14 @@ class Node:
         msg = self.nodes_in[sender].pop()
         if msg.type == 'SnapshotToken':
             # check whether the node started recording already
-            if not self.remain_recording:
+            if self.remain_recording == 0:
                 self._startSnapshot(sender)
             else:
                 if not self.channel_finished[sender]:
                     self.channel_finished[sender] = True
                     self.remain_recording -= 1
             # check whether snapshot is finished
-            if not self.remain_recording:
+            if self.remain_recording == 0:
                 self._endSnapshot()
         elif msg.type == 'Transfer':
             self.money += msg.value
@@ -104,9 +104,12 @@ class Node:
         """
         receive msg from all senders
         """
+        received_msg = False
         for sender in self.nodes_in:
-            while self.nodes_in[sender]:
+            while len(self.nodes_in[sender]) > 0:
                 self.receive(sender, False)
+                received_msg = True
+        return received_msg
 
     def receiveObserver(self):
         """
@@ -265,8 +268,12 @@ class Master:
         """
         ask each node to perform receiveAll command
         """
-        for id in self.nodes:
-            self.nodes[id].receiveAll()
+        while True:
+            all_channel_empty = True
+            for id in self.nodes:
+                all_channel_empty &= not self.nodes[id].receiveAll()
+            if all_channel_empty:
+                break
     
     def beginSnapshot(self, id):
         """
